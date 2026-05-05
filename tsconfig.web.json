@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/renderer/*"]
+    },
+    "composite": true,
+    "outDir": "./out"
+  },
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx", "src/renderer/**/*.d.ts"]
+}

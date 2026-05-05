@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>ImagePro — UI Design</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0a0a0f; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; font-family: 'SF Pro Display', -apple-system, sans-serif; }
+  h1 { color: #fff; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; opacity: 0.4; margin-bottom: 32px; }
+  canvas { display: block; border-radius: 12px; box-shadow: 0 40px 120px rgba(0,0,0,0.8); margin-bottom: 48px; }
+  .label { color: #666; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 20px; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>ImagePro · UI Design Mockup</h1>
+
+<div class="label">Screen 1 — Main Grid View</div>
+<canvas id="c1" width="1200" height="780"></canvas>
+
+<div class="label">Screen 2 — Compare Mode</div>
+<canvas id="c2" width="1200" height="780"></canvas>
+
+<div class="label">Screen 3 — Folder Picker</div>
+<canvas id="c3" width="1200" height="780"></canvas>
+
+<script>
+// ─── Design tokens ───────────────────────────────────────────────
+const T = {
+  bg:       '#0e0e16',
+  surface:  '#14141f',
+  panel:    '#1a1a28',
+  border:   '#252535',
+  border2:  '#2e2e45',
+  text:     '#e8e8f0',
+  muted:    '#8888a8',
+  dim:      '#444460',
+  accent:   '#6c63ff',
+  accentGlow: 'rgba(108,99,255,0.3)',
+
+  // Experiment colors
+  exp: ['#ff5f7e','#ffb347','#4ecdc4','#6c63ff','#a8ff78','#f7971e','#c471ed','#12c2e9'],
+  expNames: ['实验 A','实验 B','实验 C','实验 D'],
+
+  // Tag colors
+  tags: { red:'#ff4757', yellow:'#ffa502', blue:'#1e90ff', green:'#2ed573' },
+};
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+  ctx.beginPath();
+  ctx.moveTo(x+r, y);
+  ctx.lineTo(x+w-r, y); ctx.arcTo(x+w,y, x+w,y+r, r);
+  ctx.lineTo(x+w, y+h-r); ctx.arcTo(x+w,y+h, x+w-r,y+h, r);
+  ctx.lineTo(x+r, y+h); ctx.arcTo(x,y+h, x,y+h-r, r);
+  ctx.lineTo(x, y+r); ctx.arcTo(x,y, x+r,y, r);
+  ctx.closePath();
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+
+function text(ctx, str, x, y, size, color, align='left', weight='normal') {
+  ctx.font = `${weight} ${size}px 'SF Pro Display', -apple-system, sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.fillText(str, x, y);
+}
+
+function badge(ctx, label, x, y, color) {
+  const pad = 6; const h = 18;
+  ctx.font = '500 10px sans-serif';
+  const w = ctx.measureText(label).width + pad*2;
+  roundRect(ctx, x, y-13, w, h, 9, color+'33');
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.fillText(label, x+pad, y);
+  return w + 6;
+}
+
+function tag(ctx, color, x, y) {
+  roundRect(ctx, x, y, 12, 12, 3, color);
+}
+
+// ─── Fake image placeholder ───────────────────────────────────────
+function fakeImg(ctx, x, y, w, h, hue, seed) {
+  // gradient base
+  const g = ctx.createLinearGradient(x, y, x+w, y+h);
+  g.addColorStop(0, `hsla(${hue},50%,15%,1)`);
+  g.addColorStop(1, `hsla(${hue+40},60%,25%,1)`);
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+
+  // noise blobs
+  for (let i = 0; i < 6; i++) {
+    const bx = x + (((seed*37+i*83)%100)/100)*w;
+    const by = y + (((seed*53+i*61)%100)/100)*h;
+    const br = 20 + (((seed*29+i*47)%100)/100)*30;
+    const bg = ctx.createRadialGradient(bx,by,0, bx,by,br);
+    bg.addColorStop(0, `hsla(${hue+i*20},70%,50%,0.25)`);
+    bg.addColorStop(1, `hsla(${hue},0%,0%,0)`);
+    ctx.fillStyle = bg;
+    ctx.beginPath(); ctx.arc(bx,by,br,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ─── Draw pill tag ────────────────────────────────────────────────
+function drawTagPill(ctx, color, x, y) {
+  roundRect(ctx, x, y, 10, 10, 2, color);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN 1 — Main Grid View
+// ═══════════════════════════════════════════════════════════════════
+(function drawScreen1() {
+  const cv = document.getElementById('c1');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const SIDEBAR = 220, TOPBAR = 48, TOOLBAR = 40, BOTTOMBAR = 44;
+
+  // Background
+  ctx.fillStyle = T.bg; ctx.fillRect(0,0,W,H);
+
+  // ── Sidebar ──────────────────────────────────────────────────────
+  ctx.fillStyle = T.surface; ctx.fillRect(0,0,SIDEBAR,H);
+  ctx.fillStyle = T.border; ctx.fillRect(SIDEBAR,0,1,H);
+
+  // Topbar
+  ctx.fillStyle = T.panel; ctx.fillRect(0,0,W,TOPBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(0,TOPBAR-1,W,1);
+
+  // Logo area
+  text(ctx,'≡',18,30,18,T.muted,'left','bold');
+  text(ctx,'ImagePro',44,31,15,T.text,'left','600');
+
+  // Top right buttons
+  const topBtns = ['Session ▾','导出结果','⚙'];
+  let bx = W - 20;
+  topBtns.reverse().forEach(b => {
+    ctx.font = '500 12px sans-serif';
+    const bw = ctx.measureText(b).width + 24;
+    bx -= bw + 8;
+    roundRect(ctx, bx, 12, bw, 24, 5, T.panel, T.border2);
+    text(ctx, b, bx + bw/2, 29, 12, T.muted, 'center', '500');
+  });
+
+  // ── Sidebar content ───────────────────────────────────────────────
+  let sy = TOPBAR + 16;
+
+  // Add folder button
+  roundRect(ctx, 12, sy, SIDEBAR-24, 30, 6, T.accent+'22', T.accent+'66');
+  text(ctx,'+ 添加文件夹', SIDEBAR/2, sy+20, 12, T.accent, 'center', '600');
+  sy += 46;
+
+  // Section label
+  text(ctx,'当前实验组', 16, sy, 10, T.dim, 'left', '600');
+  sy += 18;
+
+  // Folders
+  const folders = [
+    {name:'实验 A', alias:'Baseline', path:'/data/exp_a', count:128, color: T.exp[0], tags:[5,3,12,8]},
+    {name:'实验 B', alias:'LoRA-v2',  path:'/data/exp_b', count:130, color: T.exp[1], tags:[2,7,9,15]},
+    {name:'实验 C', alias:'SDXL-ft',  path:'/data/exp_c', count:126, color: T.exp[2], tags:[8,1,6,3]},
+  ];
+
+  folders.forEach((f, i) => {
+    const active = i === 0;
+    if (active) { roundRect(ctx, 8, sy-2, SIDEBAR-16, 68, 6, T.accent+'18'); }
+    
+    // Color dot
+    ctx.beginPath(); ctx.arc(22, sy+10, 5, 0, Math.PI*2);
+    ctx.fillStyle = f.color; ctx.fill();
+    
+    // Name + alias
+    text(ctx, f.alias, 34, sy+14, 13, T.text, 'left', '600');
+    text(ctx, f.name, SIDEBAR-28, sy+14, 11, f.color, 'right', '500');
+    
+    // Path
+    text(ctx, f.path, 34, sy+30, 10, T.dim, 'left');
+    text(ctx, f.count+'张', 34, sy+46, 10, T.muted, 'left');
+
+    // Edit/remove icons
+    text(ctx,'✎', SIDEBAR-42, sy+14, 11, T.dim, 'left');
+    text(ctx,'×', SIDEBAR-22, sy+14, 11, T.dim, 'left');
+
+    // Separator
+    if (i < folders.length-1) {
+      ctx.fillStyle = T.border; ctx.fillRect(16, sy+64, SIDEBAR-32, 1);
+    }
+    sy += 72;
+  });
+
+  sy += 12;
+  ctx.fillStyle = T.border; ctx.fillRect(12, sy, SIDEBAR-24, 1);
+  sy += 16;
+
+  // Favorites
+  text(ctx,'收藏路径', 16, sy, 10, T.dim, 'left', '600');
+  sy += 18;
+  ['训练集-v2','测试集-final','验证集-10k'].forEach(fav => {
+    text(ctx,'★', 16, sy, 11, '#ffd700', 'left');
+    text(ctx, fav, 32, sy, 12, T.muted, 'left');
+    sy += 22;
+  });
+
+  sy += 12;
+  ctx.fillStyle = T.border; ctx.fillRect(12, sy, SIDEBAR-24, 1);
+  sy += 16;
+
+  // Tag stats
+  text(ctx,'标记统计', 16, sy, 10, T.dim, 'left', '600');
+  sy += 18;
+
+  const tagStats = [['🔴 红标','28'], ['🟡 黄标','19'], ['🔵 蓝标','41'], ['🟢 绿标','13']];
+  tagStats.forEach(([label, count]) => {
+    text(ctx, label, 16, sy, 12, T.muted, 'left');
+    text(ctx, count, SIDEBAR-20, sy, 12, T.muted, 'right', '600');
+    sy += 22;
+  });
+
+  // ── Toolbar ───────────────────────────────────────────────────────
+  const ty = TOPBAR;
+  ctx.fillStyle = T.panel; ctx.fillRect(SIDEBAR+1, ty, W-SIDEBAR-1, TOOLBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(SIDEBAR+1, ty+TOOLBAR-1, W-SIDEBAR-1, 1);
+
+  const tools = ['网格 4列 ▾','排序: 文件名 ▾','筛选标记 ▾'];
+  let tx2 = SIDEBAR + 16;
+  tools.forEach(t => {
+    ctx.font = '500 12px sans-serif';
+    const tw = ctx.measureText(t).width + 20;
+    roundRect(ctx, tx2, ty+8, tw, 24, 5, T.panel, T.border2);
+    text(ctx, t, tx2 + tw/2, ty+25, 12, T.muted, 'center', '500');
+    tx2 += tw + 8;
+  });
+
+  // Right side: zoom + view toggle
+  const rightX = W - 16;
+  ['对比模式','□ □','＋','－'].forEach((btn, i) => {
+    ctx.font = '500 12px sans-serif';
+    const bw = ctx.measureText(btn).width + 20;
+    const bxx = rightX - bw - i*(bw+8) - 8;
+    const isActive = i === 0;
+    roundRect(ctx, bxx, ty+8, bw, 24, 5, isActive ? T.accent+'44' : T.panel, isActive ? T.accent : T.border2);
+    text(ctx, btn, bxx+bw/2, ty+25, 12, isActive ? T.accent : T.muted, 'center', '500');
+  });
+
+  // ── Image Grid ────────────────────────────────────────────────────
+  const gridX = SIDEBAR + 1;
+  const gridY = TOPBAR + TOOLBAR;
+  const gridW = W - SIDEBAR - 1;
+  const gridH = H - gridY - BOTTOMBAR;
+
+  ctx.fillStyle = T.bg; ctx.fillRect(gridX, gridY, gridW, gridH);
+
+  const COLS = 4;
+  const PAD = 14;
+  const CARD_W = (gridW - PAD*(COLS+1)) / COLS;
+  const CARD_H = CARD_W * 1.1;
+
+  // Draw image cards
+  for (let row = 0; row < 2; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const idx = row * COLS + col;
+      const cx = gridX + PAD + col * (CARD_W + PAD);
+      const cy = gridY + PAD + row * (CARD_H + PAD + 28);
+
+      const folderIdx = idx % 3;
+      const expColor = T.exp[folderIdx];
+      const imgHue = [350, 30, 170][folderIdx];
+      const seed = idx * 17 + 3;
+
+      // Card bg
+      roundRect(ctx, cx, cy, CARD_W, CARD_H + 28, 8, T.surface, T.border);
+
+      // Image area (clip)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx+8, cy);
+      ctx.lineTo(cx+CARD_W-8, cy); ctx.arcTo(cx+CARD_W,cy, cx+CARD_W,cy+8, 8);
+      ctx.lineTo(cx+CARD_W, cy+CARD_H); ctx.lineTo(cx, cy+CARD_H); ctx.lineTo(cx, cy+8);
+      ctx.arcTo(cx,cy, cx+8,cy, 8); ctx.closePath();
+      ctx.clip();
+      fakeImg(ctx, cx, cy, CARD_W, CARD_H, imgHue, seed);
+      ctx.restore();
+
+      // Source overlay (top left)
+      roundRect(ctx, cx+8, cy+8, 72, 20, 4, '#00000088');
+      ctx.beginPath(); ctx.arc(cx+20, cy+18, 4, 0, Math.PI*2);
+      ctx.fillStyle = expColor; ctx.fill();
+      text(ctx, ['Baseline','LoRA-v2','SDXL-ft'][folderIdx], cx+28, cy+22, 10, '#ffffffcc', 'left', '600');
+
+      // Tag indicators (top right)
+      if (idx === 0 || idx === 3 || idx === 5) {
+        const tagColor = [T.tags.red, T.tags.green, T.tags.yellow][idx%3];
+        roundRect(ctx, cx+CARD_W-30, cy+8, 22, 20, 4, '#00000088');
+        roundRect(ctx, cx+CARD_W-25, cy+12, 12, 12, 3, tagColor);
+      }
+
+      // Selected state
+      if (idx === 2) {
+        ctx.strokeStyle = T.accent;
+        ctx.lineWidth = 2;
+        roundRect(ctx, cx+1, cy+1, CARD_W-2, CARD_H+26, 8, null, T.accent);
+        ctx.lineWidth = 1;
+        // checkmark
+        roundRect(ctx, cx+CARD_W-26, cy+CARD_H-26, 20, 20, 10, T.accent);
+        text(ctx, '✓', cx+CARD_W-20, cy+CARD_H-12, 12, '#fff', 'center', 'bold');
+      }
+
+      // Footer
+      const fname = `img_${String(seed*3%100).padStart(4,'0')}.png`;
+      text(ctx, fname, cx+10, cy+CARD_H+18, 10, T.muted, 'left');
+      text(ctx, `${(1.5+seed%30*0.07).toFixed(1)}M`, cx+CARD_W-10, cy+CARD_H+18, 10, T.dim, 'right');
+    }
+  }
+
+  // ── Bottom bar ────────────────────────────────────────────────────
+  ctx.fillStyle = T.panel; ctx.fillRect(gridX, H-BOTTOMBAR, gridW, BOTTOMBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(gridX, H-BOTTOMBAR, gridW, 1);
+  text(ctx, '已选 1 张', SIDEBAR+20, H-16, 12, T.muted, 'left');
+
+  let bbx = SIDEBAR + 110;
+  ['复制到…','移动到…','删除','清除选择'].forEach((btn, i) => {
+    ctx.font = '500 12px sans-serif';
+    const bw = ctx.measureText(btn).width + 20;
+    const isDanger = btn === '删除';
+    roundRect(ctx, bbx, H-36, bw, 24, 5, isDanger ? '#ff475722' : T.surface, isDanger ? T.tags.red+'66' : T.border2);
+    text(ctx, btn, bbx+bw/2, H-20, 12, isDanger ? T.tags.red : T.muted, 'center', '500');
+    bbx += bw + 8;
+  });
+
+  // kbd hints
+  text(ctx, '1-4: 打标  Space: 选中  Enter: 全屏  ←→: 切换', W-20, H-16, 10, T.dim, 'right');
+
+})();
+
+
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN 2 — Compare Mode
+// ═══════════════════════════════════════════════════════════════════
+(function drawScreen2() {
+  const cv = document.getElementById('c2');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  const SIDEBAR = 180, TOPBAR = 48, TOOLBAR = 40, BOTTOMBAR = 44;
+
+  ctx.fillStyle = T.bg; ctx.fillRect(0,0,W,H);
+
+  // Sidebar (collapsed, thin)
+  ctx.fillStyle = T.surface; ctx.fillRect(0,0,SIDEBAR,H);
+  ctx.fillStyle = T.border; ctx.fillRect(SIDEBAR,0,1,H);
+
+  // Topbar
+  ctx.fillStyle = T.panel; ctx.fillRect(0,0,W,TOPBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(0,TOPBAR-1,W,1);
+  text(ctx,'≡',18,30,18,T.muted,'left','bold');
+  text(ctx,'ImagePro',44,31,15,T.text,'left','600');
+
+  // Active mode pill
+  roundRect(ctx, W/2-60, 12, 120, 24, 12, T.accent+'33', T.accent);
+  text(ctx,'⊞ 对比模式', W/2, 29, 12, T.accent, 'center', '600');
+
+  // Sidebar folder list (compact)
+  let sy = TOPBAR + 16;
+  text(ctx,'实验组', 16, sy, 10, T.dim, 'left', '600');
+  sy += 18;
+  [['Baseline', T.exp[0]], ['LoRA-v2', T.exp[1]], ['SDXL-ft', T.exp[2]]].forEach(([name, color]) => {
+    ctx.beginPath(); ctx.arc(18, sy-3, 4, 0, Math.PI*2);
+    ctx.fillStyle = color; ctx.fill();
+    text(ctx, name, 30, sy, 12, T.text, 'left', '500');
+    sy += 24;
+  });
+
+  sy += 8;
+  ctx.fillStyle = T.border; ctx.fillRect(12, sy, SIDEBAR-24, 1);
+  sy += 14;
+
+  // Sync controls
+  text(ctx,'同步控制', 16, sy, 10, T.dim, 'left', '600');
+  sy += 20;
+
+  const syncBtns = ['🔗 同步缩放', '⟷ 同步滚动'];
+  syncBtns.forEach(b => {
+    roundRect(ctx, 10, sy-14, SIDEBAR-20, 24, 5, T.accent+'22', T.accent+'66');
+    text(ctx, b, SIDEBAR/2, sy+1, 11, T.accent, 'center', '500');
+    sy += 32;
+  });
+
+  // ── Toolbar ───────────────────────────────────────────────────────
+  ctx.fillStyle = T.panel; ctx.fillRect(SIDEBAR+1, TOPBAR, W-SIDEBAR-1, TOOLBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(SIDEBAR+1, TOPBAR+TOOLBAR-1, W-SIDEBAR-1, 1);
+
+  text(ctx,'img_0042.png — 对比视图', SIDEBAR+16, TOPBAR+26, 12, T.muted);
+
+  let tx2 = W - 16;
+  ['← 上一组','下一组 →','⊞ 网格模式'].forEach((btn, i) => {
+    ctx.font = '500 12px sans-serif';
+    const bw = ctx.measureText(btn).width + 20;
+    tx2 -= bw + 8;
+    roundRect(ctx, tx2, TOPBAR+8, bw, 24, 5, T.panel, T.border2);
+    text(ctx, btn, tx2+bw/2, TOPBAR+25, 12, T.muted, 'center', '500');
+  });
+
+  // ── Compare panels ─────────────────────────────────────────────────
+  const panelY = TOPBAR + TOOLBAR;
+  const panelH = H - panelY - BOTTOMBAR;
+  const COLS = 3;
+  const GAP = 6;
+  const panelW = (W - SIDEBAR - 1 - GAP*(COLS+1)) / COLS;
+
+  const exps = [
+    {name:'Baseline', alias:'实验 A', color: T.exp[0], hue:350, tag: T.tags.yellow},
+    {name:'LoRA-v2',  alias:'实验 B', color: T.exp[1], hue:30,  tag: null},
+    {name:'SDXL-ft',  alias:'实验 C', color: T.exp[2], hue:170, tag: T.tags.green},
+  ];
+
+  exps.forEach((exp, i) => {
+    const px = SIDEBAR + 1 + GAP + i*(panelW+GAP);
+    const py = panelY;
+
+    // Header bar
+    roundRect(ctx, px, py+GAP, panelW, 36, 6, exp.color+'22');
+    ctx.beginPath(); ctx.arc(px+16, py+GAP+18, 5, 0, Math.PI*2);
+    ctx.fillStyle = exp.color; ctx.fill();
+    text(ctx, exp.name, px+28, py+GAP+23, 13, T.text, 'left', '600');
+    text(ctx, exp.alias, px+panelW-10, py+GAP+23, 11, exp.color, 'right', '500');
+
+    // Image area
+    const imgY = py + GAP + 36 + 6;
+    const imgH = panelH - 36 - 6 - 80;
+
+    ctx.save();
+    roundRect(ctx, px, imgY, panelW, imgH, 6);
+    ctx.clip();
+    fakeImg(ctx, px, imgY, panelW, imgH, exp.hue, i*23+7);
+    ctx.restore();
+    roundRect(ctx, px, imgY, panelW, imgH, 6, null, T.border);
+
+    // Overlay label
+    roundRect(ctx, px+10, imgY+10, 80, 22, 4, '#00000099');
+    ctx.beginPath(); ctx.arc(px+22, imgY+21, 4, 0, Math.PI*2);
+    ctx.fillStyle = exp.color; ctx.fill();
+    text(ctx, exp.name, px+30, imgY+25, 10, '#ffffffdd', 'left', '600');
+
+    // Tag display
+    if (exp.tag) {
+      roundRect(ctx, px+panelW-40, imgY+10, 30, 22, 4, '#00000099');
+      roundRect(ctx, px+panelW-33, imgY+15, 14, 14, 3, exp.tag);
+    }
+
+    // Metadata footer
+    const metaY = imgY + imgH + 12;
+    text(ctx, '2048 × 2048', px+6, metaY+14, 10, T.muted, 'left');
+    text(ctx, '3.2 MB', px+panelW-6, metaY+14, 10, T.muted, 'right');
+
+    // Quick tag row
+    const tagY = metaY + 26;
+    text(ctx, '快速打标:', px+6, tagY+12, 10, T.dim, 'left');
+    Object.values(T.tags).forEach((tc, ti) => {
+      roundRect(ctx, px+62+ti*26, tagY, 22, 22, 4, tc+'33', tc+'88');
+      text(ctx, ti+1, px+73+ti*26, tagY+15, 10, tc, 'center', '700');
+    });
+
+    // Zoom indicator
+    text(ctx, '100%', px+panelW-6, tagY+14, 10, T.dim, 'right');
+  });
+
+  // ── Bottom bar ────────────────────────────────────────────────────
+  ctx.fillStyle = T.panel; ctx.fillRect(SIDEBAR+1, H-BOTTOMBAR, W-SIDEBAR-1, BOTTOMBAR);
+  ctx.fillStyle = T.border; ctx.fillRect(SIDEBAR+1, H-BOTTOMBAR, W-SIDEBAR-1, 1);
+  text(ctx, '第 3 组 / 共 126 组', SIDEBAR+16, H-16, 12, T.muted, 'left');
+
+  // Progress bar
+  const pW = 200;
+  roundRect(ctx, SIDEBAR+16, H-26, pW, 4, 2, T.border2);
+  roundRect(ctx, SIDEBAR+16, H-26, pW*0.024, 4, 2, T.accent);
+
+  text(ctx, 'Tab: 下一未标记  Cmd+Z: 撤销', W-20, H-16, 10, T.dim, 'right');
+
+})();
+
+
+// ═══════════════════════════════════════════════════════════════════
+// SCREEN 3 — Folder Picker
+// ═══════════════════════════════════════════════════════════════════
+(function drawScreen3() {
+  const cv = document.getElementById('c3');
+  const ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+
+  ctx.fillStyle = T.bg; ctx.fillRect(0,0,W,H);
+
+  // Dim overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(0,0,W,H);
+
+  // Modal
+  const MW = 820, MH = 560;
+  const MX = (W-MW)/2, MY = (H-MH)/2;
+  roundRect(ctx, MX, MY, MW, MH, 12, T.panel, T.border);
+
+  // Modal header
+  roundRect(ctx, MX, MY, MW, 52, 12, T.surface+'cc');
+  ctx.fillStyle = T.surface+'cc'; ctx.fillRect(MX, MY+40, MW, 12);
+  ctx.fillStyle = T.border; ctx.fillRect(MX, MY+51, MW, 1);
+
+  text(ctx, '选择文件夹', MX+24, MY+32, 16, T.text, 'left', '600');
+  text(ctx, '选择最多 8 个文件夹进行对比', MX+24, MY+48, 11, T.muted, 'left');
+
+  // Close
+  text(ctx, '×', MX+MW-24, MY+30, 18, T.muted, 'left', '300');
+
+  // Left: file tree
+  const treeW = 300;
+  ctx.fillStyle = T.surface; ctx.fillRect(MX, MY+52, treeW, MH-52);
+  ctx.fillStyle = T.border; ctx.fillRect(MX+treeW, MY+52, 1, MH-52);
+
+  text(ctx, 'FILESYSTEM', MX+16, MY+76, 9, T.dim, 'left', '700');
+  
+  const tree = [
+    {indent:0, icon:'▶', name:'/home/user/'},
+    {indent:0, icon:'▼', name:'data/', open:true},
+    {indent:1, icon:'📁', name:'experiments/', active:true},
+    {indent:2, icon:'📂', name:'exp_a/'},
+    {indent:2, icon:'📂', name:'exp_b/'},
+    {indent:2, icon:'📂', name:'exp_c/'},
+    {indent:1, icon:'📁', name:'datasets/'},
+    {indent:1, icon:'📁', name:'outputs/'},
+    {indent:0, icon:'▶', name:'Downloads/'},
+    {indent:0, icon:'▶', name:'Documents/'},
+  ];
+
+  let treeY = MY + 94;
+  tree.forEach(item => {
+    const ix = MX + 16 + item.indent * 18;
+    if (item.active) { ctx.fillStyle = T.accent+'22'; ctx.fillRect(MX+1, treeY-14, treeW-2, 22); }
+    text(ctx, item.icon, ix, treeY, 11, item.active ? T.accent : T.muted, 'left');
+    text(ctx, item.name, ix+16, treeY, 12, item.active ? T.text : T.muted, 'left', item.active ? '600' : '400');
+    treeY += 26;
+  });
+
+  // Right: preview
+  const previewX = MX + treeW + 1;
+  const previewW = MW - treeW;
+
+  text(ctx, 'PREVIEW — experiments/', previewX+16, MY+76, 9, T.dim, 'left', '700');
+
+  // Thumbnail grid in preview
+  const PCOLS = 4;
+  const PW = (previewW - 16*2 - 8*3) / 4;
+  const PH = PW;
+  const hues = [350, 30, 170, 220, 280, 330, 60, 130];
+
+  for (let i = 0; i < 8; i++) {
+    const col = i % PCOLS;
+    const row = Math.floor(i / PCOLS);
+    const px = previewX + 16 + col*(PW+8);
+    const py = MY + 94 + row*(PH+24);
+
+    ctx.save();
+    roundRect(ctx, px, py, PW, PH, 4);
+    ctx.clip();
+    fakeImg(ctx, px, py, PW, PH, hues[i], i*13+5);
+    ctx.restore();
+    roundRect(ctx, px, py, PW, PH, 4, null, T.border);
+    text(ctx, `img_${String(i*7+1).padStart(4,'0')}.png`, px, py+PH+14, 9, T.dim, 'left');
+  }
+
+  text(ctx, '128 张图片', previewX+16, MY+MH-72, 11, T.muted, 'left');
+
+  // Bottom action bar
+  roundRect(ctx, MX, MY+MH-56, MW, 56, 12, T.surface+'ee');
+  ctx.fillStyle = T.surface+'ee'; ctx.fillRect(MX, MY+MH-56, MW, 20);
+  ctx.fillStyle = T.border; ctx.fillRect(MX, MY+MH-57, MW, 1);
+
+  // Alias input
+  text(ctx, '别名:', MX+20, MY+MH-26, 12, T.muted, 'left');
+  roundRect(ctx, MX+52, MY+MH-42, 180, 28, 5, T.bg, T.border2);
+  text(ctx, 'experiments', MX+66, MY+MH-24, 12, T.text, 'left');
+
+  // Confirm btn
+  roundRect(ctx, MX+MW-120, MY+MH-44, 96, 32, 6, T.accent);
+  text(ctx, '添加文件夹', MX+MW-72, MY+MH-24, 12, '#fff', 'center', '600');
+
+  // Cancel
+  roundRect(ctx, MX+MW-228, MY+MH-44, 96, 32, 6, T.panel, T.border2);
+  text(ctx, '取消', MX+MW-180, MY+MH-24, 12, T.muted, 'center', '500');
+
+  // Screen annotation labels
+  const ann = (label, x, y) => {
+    roundRect(ctx, x-4, y-14, ctx.measureText(label).width+8, 18, 3, '#ffd70022', '#ffd70088');
+    text(ctx, label, x, y, 10, '#ffd700', 'left', '600');
+  };
+
+  // Already added folders indicator
+  text(ctx, '已添加 3/8 个文件夹', MX+280, MY+MH-26, 11, T.dim, 'left');
+
+})();
+
+</script>
+</body>
+</html>
