@@ -7,8 +7,8 @@ import { TagStats } from '../sidebar/TagStats'
 interface SidebarProps {
   width: number
   collapsed: boolean
-  activeFolderPath: string | null
-  onSelectFolder: (path: string) => void
+  activeFolderId: string | null
+  onSelectFolder: (id: string) => void
   onAddFolder: () => void
   onFavoriteSelect: (path: string, alias: string) => void
 }
@@ -16,7 +16,7 @@ interface SidebarProps {
 export function Sidebar({
   width,
   collapsed,
-  activeFolderPath,
+  activeFolderId,
   onSelectFolder,
   onAddFolder,
   onFavoriteSelect,
@@ -33,7 +33,6 @@ export function Sidebar({
     >
       {!collapsed && (
         <div className="flex flex-col h-full overflow-y-auto py-4 gap-4">
-          {/* Add folder button */}
           <div className="px-3">
             <button
               onClick={onAddFolder}
@@ -44,27 +43,24 @@ export function Sidebar({
                   : 'text-accent border-accent/40 bg-accent/10 hover:bg-accent/20'
               }`}
             >
-              {folders.length >= 8 ? '已达上限 8/8' : '+ 添加文件夹'}
+              {folders.length >= 8 ? '已达上限 6/6' : '+ 添加文件夹'}
             </button>
           </div>
 
-          {/* Current folders */}
           <div>
             <p className="text-dim text-[10px] font-semibold px-3 mb-1">当前实验组</p>
             <FolderList
-              activeFolderPath={activeFolderPath}
+              activeFolderId={activeFolderId}
               onSelectFolder={onSelectFolder}
             />
           </div>
 
           <div className="border-t border-border mx-3" />
 
-          {/* Favorites */}
           <FavoriteList onSelect={onFavoriteSelect} />
 
           <div className="border-t border-border mx-3" />
 
-          {/* Tag stats */}
           <TagStats />
         </div>
       )}

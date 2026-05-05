@@ -23,7 +23,7 @@ export function Toolbar() {
     <div className="h-10 bg-panel flex items-center px-4 gap-2 border-b border-border flex-shrink-0">
       {/* Column selector */}
       <div className="flex items-center gap-1 text-muted text-xs">
-        <span>网格</span>
+        <span>预览</span>
         <select
           value={gridColumns}
           onChange={(e) => setGridColumns(Number(e.target.value))}
@@ -79,7 +79,7 @@ export function Toolbar() {
             : 'text-muted border-border-2 hover:border-muted/30'
         }`}
       >
-        {viewMode === 'grid' ? '对比模式' : '网格模式'}
+        {viewMode === 'grid' ? '对比模式' : '预览模式'}
       </button>
 
       {/* Zoom controls */}

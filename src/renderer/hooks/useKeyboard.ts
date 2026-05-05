@@ -54,7 +54,7 @@ export function useKeyboard() {
       if (e.key === ' ') {
         e.preventDefault()
         if (focusedPath) {
-          selectPath(focusedPath, true)
+          selectPath(focusedPath)
         }
         return
       }
@@ -63,7 +63,7 @@ export function useKeyboard() {
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault()
         const allImages = folders.flatMap((f) =>
-          (imagesByFolder[f.path] || []).map((img) => img.path),
+          (imagesByFolder[f.id] || []).map((img) => img.path),
         )
         if (allImages.length === 0) return
         const idx = focusedPath ? allImages.indexOf(focusedPath) : -1
@@ -87,7 +87,7 @@ export function useKeyboard() {
       if (e.key === 'Tab') {
         e.preventDefault()
         const allImages = folders.flatMap((f) =>
-          (imagesByFolder[f.path] || []).map((img) => img.path),
+          (imagesByFolder[f.id] || []).map((img) => img.path),
         )
         const tags = useTagStore.getState().tagsByPath
         const startIdx = focusedPath ? allImages.indexOf(focusedPath) : -1

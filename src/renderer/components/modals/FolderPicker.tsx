@@ -2,8 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useFavoriteStore } from '../../store/favoriteStore'
 import { basename } from '../../utils/path'
 
-const HOME_DIR = '/Users/sunshuo'
-
 interface FolderPickerProps {
   isOpen: boolean
   onClose: () => void
@@ -32,7 +30,8 @@ export function FolderPicker({ isOpen, onClose, onConfirm, currentCount }: Folde
     if (!isOpen) return
     const loadRoot = async () => {
       try {
-        const entries = await window.api.fileListDir(HOME_DIR)
+        const homeDir = await window.api.getHomeDir()
+        const entries = await window.api.fileListDir(homeDir)
         setTree(entries.map((e) => ({ name: e.name, path: e.path })))
       } catch {
         setTree([])

@@ -1,8 +1,10 @@
 import { useRef, useEffect, memo } from 'react'
-import { useThumbnail } from '../../hooks/useThumbnail'
+import { useOriginalImage } from '../../hooks/useOriginalImage'
 import { useTagStore } from '../../store/tagStore'
 import { tokens } from '../../styles/tokens'
 import type { ImageFile } from '../../store/folderStore'
+
+export const PANEL_LABELS = ['A', 'B', 'C', 'D', 'E', 'F']
 
 interface ComparePanelProps {
   image: ImageFile | null
@@ -11,8 +13,15 @@ interface ComparePanelProps {
   zoom: number
   syncScroll: boolean
   scrollTop: number
+  panelIndex: number
+  totalPanels: number
+  otherImages: (ImageFile | null)[]
+  peekingFrom: number | null
   onScroll: (scrollTop: number) => void
   onZoomChange: (delta: number) => void
+  onPeekStart: (fromPanelIdx: number) => void
+  onPeekEnd: () => void
+  displayImage?: ImageFile | null  // The image actually being displayed (may be peek image)
 }
 
 export const ComparePanel = memo(function ComparePanel({
@@ -22,14 +31,22 @@ export const ComparePanel = memo(function ComparePanel({
   zoom,
   syncScroll,
   scrollTop,
+  panelIndex,
+  totalPanels,
+  otherImages,
+  peekingFrom,
   onScroll,
   onZoomChange,
+  onPeekStart,
+  onPeekEnd,
+  displayImage,
 }: ComparePanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const imgRef = useRef<HTMLDivElement>(null)
-  const { thumbnail } = useThumbnail(image?.path ?? null)
+  const displayPath = displayImage?.path ?? image?.path ?? null
+  const { dataUrl, loading } = useOriginalImage(displayPath)
   const tag = useTagStore((s) => (image ? s.tagsByPath[image.path] : undefined))
   const setTag = useTagStore((s) => s.setTag)
+  const label = PANEL_LABELS[panelIndex] || String(panelIndex)
 
   useEffect(() => {
     if (containerRef.current && syncScroll) {
@@ -58,34 +75,89 @@ export const ComparePanel = memo(function ComparePanel({
 
   return (
     <div className="flex flex-col h-full" style={{ minWidth: 0 }}>
-      {/* Header */}
+      {/* Header with peek buttons */}
       <div
-        className="flex items-center gap-2 px-3 py-2 rounded-t-lg"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-t-lg"
         style={{ backgroundColor: color + '15' }}
       >
-        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
-        <span className="text-white text-xs font-semibold">{alias}</span>
+        <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
+        <span className="text-white text-[10px] font-semibold truncate">{alias}</span>
+        <span className="text-dim text-[9px] font-bold ml-auto mr-1">{label}</span>
+
+        {/* Peek buttons - long press */}
+        {totalPanels > 1 && (
+          <div className="flex gap-0.5">
+            {otherImages.map((_, otherIdx) => {
+              const actualIdx = otherIdx >= panelIndex ? otherIdx + 1 : otherIdx
+              const otherLabel = PANEL_LABELS[actualIdx] || String(actualIdx)
+              const isActive = peekingFrom === actualIdx
+              return (
+                <button
+                  key={otherLabel}
+                  onMouseDown={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onPeekStart(actualIdx)
+                  }}
+                  onMouseUp={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onPeekEnd()
+                  }}
+                  onMouseLeave={(e) => {
+                    e.stopPropagation()
+                    if (isActive) onPeekEnd()
+                  }}
+                  onTouchStart={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onPeekStart(actualIdx)
+                  }}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onPeekEnd()
+                  }}
+                  className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors select-none ${
+                    isActive
+                      ? 'bg-accent/30 border-accent text-accent'
+                      : 'bg-surface/50 border-border-2 text-dim hover:border-muted/50 hover:text-muted'
+                  }`}
+                  title={`长按对比 ${otherLabel}`}
+                >
+                  {otherLabel}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Image area */}
+      {/* Image area - full original image */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto rounded-b-lg border border-border bg-surface"
+        className="flex-1 overflow-auto border border-border bg-surface rounded-b-lg"
         onScroll={handleScroll}
         onWheel={handleWheel}
       >
-        {image && thumbnail ? (
-          <div ref={imgRef} className="relative flex items-center justify-center min-h-full p-2">
+        {image && dataUrl ? (
+          <div className="relative flex items-center justify-center min-h-full p-2">
             <img
-              src={thumbnail}
+              src={dataUrl}
               alt={image.name}
               style={{ transform: `scale(${zoom})`, transformOrigin: 'center center' }}
               className="max-w-full object-contain transition-transform"
+              draggable={false}
             />
             {/* Overlay */}
             <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 rounded px-2 py-0.5">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-white/80 text-[10px] font-semibold">{alias}</span>
+              {peekingFrom !== null && (
+                <span className="text-accent text-[9px]">
+                  (peek {PANEL_LABELS[peekingFrom]})
+                </span>
+              )}
             </div>
             {/* Tag indicator */}
             {tag && (
@@ -99,6 +171,10 @@ export const ComparePanel = memo(function ComparePanel({
               </div>
             )}
           </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center h-full text-dim text-xs">
+            <div className="w-6 h-6 border-2 border-border border-t-muted rounded-full animate-spin" />
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full text-dim text-xs">
             {image ? '加载中...' : '无图片'}
@@ -106,39 +182,33 @@ export const ComparePanel = memo(function ComparePanel({
         )}
       </div>
 
-      {/* Footer metadata */}
+      {/* Footer */}
       {image && (
-        <div className="flex justify-between px-2 py-1.5">
-          <span className="text-muted text-[10px]">
-            {image.width && image.height
-              ? `${image.width} × ${image.height}`
-              : image.name}
-          </span>
-          <span className="text-muted text-[10px]">
+        <div className="flex justify-between px-2 py-1">
+          <span className="text-muted text-[10px] truncate max-w-[60%]">{image.name}</span>
+          <span className="text-muted text-[9px]">
             {image.size > 1024 * 1024
-              ? `${(image.size / (1024 * 1024)).toFixed(1)} MB`
-              : `${Math.round(image.size / 1024)} KB`}
+              ? `${(image.size / (1024 * 1024)).toFixed(1)}M`
+              : `${Math.round(image.size / 1024)}K`}
           </span>
         </div>
       )}
 
       {/* Quick tag row */}
       {image && (
-        <div className="flex items-center gap-2 px-2 pb-2">
-          <span className="text-dim text-[10px]">快速打标:</span>
-          {Object.entries(tokens.tagColors).map(([key, color]) => (
+        <div className="flex items-center gap-1 px-2 pb-1">
+          {Object.entries(tokens.tagColors).map(([key, tagColor]) => (
             <button
               key={key}
               onClick={() => handleTag(key)}
-              className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold border transition-colors ${
+              className={`w-5 h-5 rounded flex items-center justify-center text-[8px] font-bold border ${
                 tag === key ? 'border-white/60' : 'border-transparent'
               }`}
-              style={{ backgroundColor: color + '33', color, borderColor: tag === key ? color : undefined }}
+              style={{ backgroundColor: tagColor + '22', color: tagColor, borderColor: tag === key ? tagColor : undefined }}
             >
               {['red', 'yellow', 'blue', 'green'].indexOf(key) + 1}
             </button>
           ))}
-          <span className="text-dim text-[10px] ml-auto">{Math.round(zoom * 100)}%</span>
         </div>
       )}
     </div>

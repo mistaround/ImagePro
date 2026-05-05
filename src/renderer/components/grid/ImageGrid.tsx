@@ -4,11 +4,7 @@ import { useFolderStore, ImageFile } from '../../store/folderStore'
 import { useImageStore } from '../../store/imageStore'
 import { ImageCard } from './ImageCard'
 
-interface ImageGridProps {
-  activeFolderPath: string | null
-}
-
-export function ImageGrid({ activeFolderPath }: ImageGridProps) {
+export function ImageGrid() {
   const folders = useFolderStore((s) => s.folders)
   const imagesByFolder = useFolderStore((s) => s.imagesByFolder)
   const gridColumns = useImageStore((s) => s.gridColumns)
@@ -22,7 +18,7 @@ export function ImageGrid({ activeFolderPath }: ImageGridProps) {
   const allImages = useMemo(() => {
     const result: { image: ImageFile; folderAlias: string; folderColor: string }[] = []
     for (const folder of folders) {
-      const images = imagesByFolder[folder.path] || []
+      const images = imagesByFolder[folder.id] || []
       for (const img of images) {
         result.push({
           image: img,

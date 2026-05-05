@@ -4,22 +4,7 @@ import { useTagStore } from '../../store/tagStore'
 export function BottomBar() {
   const selectedPaths = useImageStore((s) => s.selectedPaths)
   const deselectAll = useImageStore((s) => s.deselectAll)
-  const batchSetTags = useTagStore((s) => s.batchSetTags)
-
   const count = selectedPaths.size
-
-  const handleBatchTag = (tag: string) => {
-    const paths = Array.from(selectedPaths)
-    const updates = paths.map((path) => {
-      const currentTag = useTagStore.getState().tagsByPath[path]
-      return { path, tag: currentTag === tag ? null : tag }
-    })
-    batchSetTags(updates)
-    updates.forEach(({ path, tag }) => {
-      window.api.tagsSet(path, tag)
-    })
-    deselectAll()
-  }
 
   const handleCopy = async () => {
     const dest = await window.api.fileBrowse()

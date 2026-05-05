@@ -19,8 +19,9 @@ interface ImageState {
   setSortKey: (key: SortKey) => void
   setSortOrder: (order: SortOrder) => void
   toggleSortOrder: () => void
-  selectPath: (path: string, multi?: boolean) => void
+  selectPath: (path: string) => void
   deselectAll: () => void
+  deselectPaths: (paths: string[]) => void
   setFocusedPath: (path: string | null) => void
   setTagFilter: (tag: string | null) => void
 }
@@ -47,15 +48,23 @@ export const useImageStore = create<ImageState>((set) => ({
 
   toggleSortOrder: () => set((s) => ({ sortOrder: s.sortOrder === 'asc' ? 'desc' : 'asc' })),
 
-  selectPath: (path, multi = false) =>
+  selectPath: (path) =>
     set((state) => {
-      const next = new Set(multi ? state.selectedPaths : [])
+      const next = new Set(state.selectedPaths)
       if (next.has(path)) next.delete(path)
       else next.add(path)
       return { selectedPaths: next, focusedPath: path }
     }),
 
   deselectAll: () => set({ selectedPaths: new Set() }),
+
+  deselectPaths: (paths) =>
+    set((state) => {
+      const next = new Set(state.selectedPaths)
+      for (const p of paths) next.delete(p)
+      const focused = state.focusedPath && paths.includes(state.focusedPath) ? null : state.focusedPath
+      return { selectedPaths: next, focusedPath: focused }
+    }),
 
   setFocusedPath: (path) => set({ focusedPath: path }),
 

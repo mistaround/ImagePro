@@ -18,6 +18,14 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.titlebar-drag {
+  -webkit-app-region: drag;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

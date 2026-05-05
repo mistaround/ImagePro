@@ -1,12 +1,12 @@
-import { useFolderStore, FolderEntry } from '../../store/folderStore'
+import { useFolderStore } from '../../store/folderStore'
 import { FolderItem } from './FolderItem'
 
 interface FolderListProps {
-  activeFolderPath: string | null
-  onSelectFolder: (path: string) => void
+  activeFolderId: string | null
+  onSelectFolder: (id: string) => void
 }
 
-export function FolderList({ activeFolderPath, onSelectFolder }: FolderListProps) {
+export function FolderList({ activeFolderId, onSelectFolder }: FolderListProps) {
   const folders = useFolderStore((s) => s.folders)
   const imagesByFolder = useFolderStore((s) => s.imagesByFolder)
   const removeFolder = useFolderStore((s) => s.removeFolder)
@@ -43,14 +43,14 @@ export function FolderList({ activeFolderPath, onSelectFolder }: FolderListProps
     <div className="flex flex-col gap-0.5">
       {folders.map((folder, idx) => (
         <FolderItem
-          key={folder.path}
+          key={folder.id}
           folder={folder}
-          imageCount={(imagesByFolder[folder.path] || []).length}
-          isActive={folder.path === activeFolderPath}
-          onSelect={() => onSelectFolder(folder.path)}
-          onAliasChange={(alias) => updateAlias(folder.path, alias)}
-          onColorChange={(color) => updateAlias(folder.path, color)}
-          onRemove={() => removeFolder(folder.path)}
+          imageCount={(imagesByFolder[folder.id] || []).length}
+          isActive={folder.id === activeFolderId}
+          onSelect={() => onSelectFolder(folder.id)}
+          onAliasChange={(alias) => updateAlias(folder.id, alias)}
+          onColorChange={(color) => updateAlias(folder.id, color)}
+          onRemove={() => removeFolder(folder.id)}
           onDragStart={(e) => handleDragStart(e, idx)}
           onDragOver={handleDragOver}
           onDrop={(e) => handleDrop(e, idx)}

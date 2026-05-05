@@ -1,9 +1,31 @@
-import { ipcMain, shell, dialog } from 'electron'
-import { copyFile, rename } from 'fs/promises'
-import { join, basename } from 'path'
+import { ipcMain, shell, dialog, app } from 'electron'
+import { copyFile, rename, readFile } from 'fs/promises'
+import { join, basename, extname } from 'path'
 import { readdir } from 'fs/promises'
+import { homedir } from 'os'
+
+const MIME_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.gif': 'image/gif',
+  '.tiff': 'image/tiff',
+}
 
 export function registerFileOpsIPC(): void {
+  ipcMain.handle('file:getImage', async (_, filePath: string) => {
+    try {
+      const buf = await readFile(filePath)
+      const ext = extname(filePath).toLowerCase()
+      const mime = MIME_TYPES[ext] || 'image/png'
+      return `data:${mime};base64,${buf.toString('base64')}`
+    } catch {
+      return null
+    }
+  })
+
   ipcMain.handle('file:copy', async (_, src: string, destDir: string) => {
     const name = basename(src)
     const dest = join(destDir, name)
@@ -27,6 +49,10 @@ export function registerFileOpsIPC(): void {
     })
     if (result.canceled) return null
     return result.filePaths[0]
+  })
+
+  ipcMain.handle('file:getHomeDir', () => {
+    return homedir()
   })
 
   ipcMain.handle('file:listDir', async (_, dirPath: string) => {

@@ -1,7 +1,14 @@
 import { create } from 'zustand'
 import { tokens } from '../styles/tokens'
+import { basename } from '../utils/path'
+
+let idCounter = 0
+function genId(): string {
+  return `folder_${++idCounter}_${Date.now()}`
+}
 
 export interface FolderEntry {
+  id: string
   path: string
   alias: string
   color: string
@@ -18,15 +25,15 @@ export interface ImageFile {
 
 interface FolderState {
   folders: FolderEntry[]
-  imagesByFolder: Record<string, ImageFile[]>
+  imagesByFolder: Record<string, ImageFile[]>  // keyed by folder.id
   loadingFolders: Set<string>
-  addFolder: (path: string, alias?: string) => void
-  removeFolder: (path: string) => void
-  updateAlias: (path: string, alias: string) => void
-  updateColor: (path: string, color: string) => void
+  addFolder: (path: string, alias?: string) => string  // returns new folder id
+  removeFolder: (id: string) => void
+  updateAlias: (id: string, alias: string) => void
+  updateColor: (id: string, color: string) => void
   reorderFolders: (fromIndex: number, toIndex: number) => void
-  setImages: (folderPath: string, images: ImageFile[]) => void
-  setLoading: (folderPath: string, loading: boolean) => void
+  setImages: (folderId: string, images: ImageFile[]) => void
+  setLoading: (folderId: string, loading: boolean) => void
 }
 
 const getNextColor = (usedColors: string[]): string => {
@@ -39,39 +46,42 @@ export const useFolderStore = create<FolderState>((set) => ({
   imagesByFolder: {},
   loadingFolders: new Set<string>(),
 
-  addFolder: (path, alias) =>
+  addFolder: (path, alias) => {
+    const id = genId()
     set((state) => {
-      if (state.folders.length >= 8) return state
-      if (state.folders.some((f) => f.path === path)) return state
+      if (state.folders.length >= 6) return state
       const usedColors = state.folders.map((f) => f.color)
       return {
         folders: [
           ...state.folders,
           {
+            id,
             path,
-            alias: alias || path.split('/').pop() || path,
+            alias: alias || basename(path),
             color: getNextColor(usedColors),
           },
         ],
       }
-    }),
+    })
+    return id
+  },
 
-  removeFolder: (path) =>
+  removeFolder: (id) =>
     set((state) => ({
-      folders: state.folders.filter((f) => f.path !== path),
+      folders: state.folders.filter((f) => f.id !== id),
       imagesByFolder: Object.fromEntries(
-        Object.entries(state.imagesByFolder).filter(([k]) => k !== path),
+        Object.entries(state.imagesByFolder).filter(([k]) => k !== id),
       ),
     })),
 
-  updateAlias: (path, alias) =>
+  updateAlias: (id, alias) =>
     set((state) => ({
-      folders: state.folders.map((f) => (f.path === path ? { ...f, alias } : f)),
+      folders: state.folders.map((f) => (f.id === id ? { ...f, alias } : f)),
     })),
 
-  updateColor: (path, color) =>
+  updateColor: (id, color) =>
     set((state) => ({
-      folders: state.folders.map((f) => (f.path === path ? { ...f, color } : f)),
+      folders: state.folders.map((f) => (f.id === id ? { ...f, color } : f)),
     })),
 
   reorderFolders: (fromIndex, toIndex) =>
@@ -82,16 +92,16 @@ export const useFolderStore = create<FolderState>((set) => ({
       return { folders: newFolders }
     }),
 
-  setImages: (folderPath, images) =>
+  setImages: (folderId, images) =>
     set((state) => ({
-      imagesByFolder: { ...state.imagesByFolder, [folderPath]: images },
+      imagesByFolder: { ...state.imagesByFolder, [folderId]: images },
     })),
 
-  setLoading: (folderPath, loading) =>
+  setLoading: (folderId, loading) =>
     set((state) => {
       const next = new Set(state.loadingFolders)
-      if (loading) next.add(folderPath)
-      else next.delete(folderPath)
+      if (loading) next.add(folderId)
+      else next.delete(folderId)
       return { loadingFolders: next }
     }),
 }))

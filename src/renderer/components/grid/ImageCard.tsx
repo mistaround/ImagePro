@@ -29,8 +29,8 @@ export const ImageCard = memo(function ImageCard({
   const isFocused = focusedPath === image.path
 
   const handleClick = useCallback(
-    (e: React.MouseEvent) => {
-      selectPath(image.path, e.metaKey || e.ctrlKey)
+    () => {
+      selectPath(image.path)
     },
     [image.path, selectPath],
   )

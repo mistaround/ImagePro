@@ -64,10 +64,10 @@ export function SessionMenu({ isOpen, onToggle }: SessionMenuProps) {
       const session = JSON.parse(row.data)
       const folders = useFolderStore.getState()
       session.folders.forEach((f: { path: string; alias: string; color: string }) => {
-        folders.addFolder(f.path, f.alias)
+        const newId = folders.addFolder(f.path, f.alias)
         // Scan folder
         window.api.folderScan(f.path).then((images) => {
-          useFolderStore.getState().setImages(f.path, images)
+          useFolderStore.getState().setImages(newId, images)
         })
       })
       useImageStore.getState().setViewMode(session.viewMode)

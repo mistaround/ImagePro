@@ -16,8 +16,11 @@ export const useTagStore = create<TagState>((set) => ({
   setTag: (path, tag) =>
     set((state) => {
       const previousTag = state.tagsByPath[path] ?? null
+      const newTags = { ...state.tagsByPath }
+      if (tag) newTags[path] = tag
+      else delete newTags[path]
       return {
-        tagsByPath: { ...state.tagsByPath, [path]: tag ?? undefined },
+        tagsByPath: newTags,
         tagHistory: [...state.tagHistory.slice(-99), { path, previousTag }],
       }
     }),
